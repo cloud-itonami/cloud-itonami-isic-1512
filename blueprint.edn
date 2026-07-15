@@ -1,0 +1,12 @@
+{:itonami.blueprint/id "cloud-itonami-1512"
+ :itonami.blueprint/name "Luggage, Handbag & Saddlery/Harness Manufacturing"
+ :itonami.blueprint/isic-rev5 "1512"
+ :itonami.blueprint/domain :luggage/manufacturing
+ :itonami.blueprint/license "AGPL-3.0-or-later"
+ :itonami.blueprint/social-impact [:fair-labor :local-industry :material-sourcing-transparency]
+ :itonami.blueprint/governor :luggage-governor
+ :itonami.blueprint/robotics true
+ :itonami.blueprint/required-technologies [:robotics :identity :forms :dmn :bpmn :audit-ledger :cae]
+ :itonami.blueprint/optional-technologies [:optimization :telemetry]
+ :itonami.blueprint/status :public-oss
+ :itonami.blueprint/maturity :implemented}
