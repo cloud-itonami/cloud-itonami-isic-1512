@@ -3,17 +3,18 @@
             [luggage.facts :as facts]))
 
 (deftest catalog-has-jurisdictions
-  "Catalog should define at least 3 jurisdictions with official spec-basis."
-  (is (>= (count facts/catalog) 3))
+  "Catalog should define at least 4 jurisdictions with official spec-basis."
+  (is (>= (count facts/catalog) 4))
   (is (contains? facts/catalog :USA))
   (is (contains? facts/catalog :ITA))
-  (is (contains? facts/catalog :CAN)))
+  (is (contains? facts/catalog :CAN))
+  (is (contains? facts/catalog :MEX)))
 
 (deftest jurisdiction-coverage-honest
   "Coverage reporting should be honest about scope."
   (let [cov (facts/coverage)]
     (is (map? cov))
-    (is (>= (:implemented cov) 3))
+    (is (>= (:implemented cov) 4))
     (is (= (:worldwide-jurisdictions cov) 194))
     (is (> (:coverage-pct cov) 0))
     (is (contains? cov :note))))
@@ -52,7 +53,12 @@
   (testing "Canada complete requirements"
     (let [checklist {:product-label true :dealer-info-marking true
                      :wage-record true :safety-training true}]
-      (is (facts/required-evidence-satisfied? :CAN checklist)))))
+      (is (facts/required-evidence-satisfied? :CAN checklist))))
+
+  (testing "Mexico complete requirements"
+    (let [checklist {:product-label true :material-content-verified true
+                     :wage-hour-record true :safety-training true}]
+      (is (facts/required-evidence-satisfied? :MEX checklist)))))
 
 (deftest spec-basis-citations
   "All spec-basis citations should be strings (official references)."

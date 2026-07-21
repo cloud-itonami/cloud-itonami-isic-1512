@@ -8,7 +8,14 @@
   prove the governor contract end-to-end, not a claim of global coverage.
   Adding a jurisdiction is additive: one map entry citing a real official
   source -- never fabricate a jurisdiction's requirements to make coverage
-  look bigger.")
+  look bigger.
+
+  Citations verified 2026-07-21: MEX leather-labeling confirmed directly
+  against PROFECO's official NOM listing (profeco.gob.mx/juridico/normas/
+  noms_economia.asp), NOM-020-SCFI-1997, in force since 1999-04-27. MEX
+  labor-standards confirmed via primary text of the Ley Federal del Trabajo
+  fetched from the official gob.mx mirror (gob.mx/cms/uploads/attachment/
+  file/156203/1044_Ley_Federal_del_Trabajo.pdf). Both HIGH confidence.")
 
 ;; ----------------------------- jurisdiction catalog -----------------------------
 
@@ -62,7 +69,19 @@
      :labor-standards {:description "Federal labour-standards compliance for plant personnel"
                       :required true
                       :spec-basis "Canada Labour Code, R.S.C. 1985, c. L-2"
-                      :evidence [:wage-record :safety-training]}}}})
+                      :evidence [:wage-record :safety-training]}}}
+
+   :MEX
+   {:name "Mexico"
+    :requirements
+    {:leather-labeling {:description "Commercial-information labeling for tanned natural leather and hides, and synthetic materials with that appearance, used in footwear, leather goods (marroquineria) and related products"
+                        :required true
+                        :spec-basis "NOM-020-SCFI-1997, Informacion comercial-Etiquetado de cueros y pieles curtidas naturales y materiales sinteticos o artificiales con esa apariencia, calzado, marroquineria asi como los productos elaborados con dichos materiales"
+                        :evidence [:product-label :material-content-verified]}
+     :labor-standards {:description "Federal labor-law compliance for plant personnel, including wages, hours and workplace safety"
+                      :required true
+                      :spec-basis "Ley Federal del Trabajo (Diario Oficial de la Federacion, 1 de abril de 1970, ultima reforma DOF 12-06-2015)"
+                      :evidence [:wage-hour-record :safety-training]}}}})
 
 ;; ----------------------------- coverage reporting (honest) -----------------------------
 
