@@ -15,7 +15,21 @@
   noms_economia.asp), NOM-020-SCFI-1997, in force since 1999-04-27. MEX
   labor-standards confirmed via primary text of the Ley Federal del Trabajo
   fetched from the official gob.mx mirror (gob.mx/cms/uploads/attachment/
-  file/156203/1044_Ley_Federal_del_Trabajo.pdf). Both HIGH confidence.")
+  file/156203/1044_Ley_Federal_del_Trabajo.pdf). Both HIGH confidence.
+
+  Citations verified 2026-07-22: JPN quality-labeling confirmed directly
+  against the primary text of the Household Goods Quality Labeling Act
+  (家庭用品品質表示法, Act No. 104 of 1962) and its Enforcement Order
+  (家庭用品品質表示法施行令, Cabinet Order No. 390 of 1962), fetched via
+  e-Gov's law-data API (laws.e-gov.go.jp/api/1/lawdata/<law-id> --
+  e-Gov's newer elaws.e-gov.go.jp/document UI is a JS-rendered SPA that
+  returns only an empty app shell to direct fetch, so the API endpoint
+  was used instead). The Enforcement Order's Appended Table item 11
+  designates 'かばん' (bags, limited to those made of cowhide or other
+  Cabinet-Office-Ordinance-designated material) as a household good
+  subject to the Act's Article 3 standardized-labeling regime. HIGH
+  confidence (primary text of both the Act and its designating Order
+  read directly).")
 
 ;; ----------------------------- jurisdiction catalog -----------------------------
 
@@ -81,7 +95,15 @@
      :labor-standards {:description "Federal labor-law compliance for plant personnel, including wages, hours and workplace safety"
                       :required true
                       :spec-basis "Ley Federal del Trabajo (Diario Oficial de la Federacion, 1 de abril de 1970, ultima reforma DOF 12-06-2015)"
-                      :evidence [:wage-hour-record :safety-training]}}}})
+                      :evidence [:wage-hour-record :safety-training]}}}
+
+   :JPN
+   {:name "Japan"
+    :requirements
+    {:quality-labeling {:description "Leather bags (かばん) made of cowhide or other Cabinet-Office-Ordinance-designated material are a designated household good subject to standardized quality-labeling content (materials, care, other matters) set by the Prime Minister under Article 3"
+                       :required true
+                       :spec-basis "家庭用品品質表示法 (Household Goods Quality Labeling Act, Act No. 104 of 1962) Art. 1-3; 家庭用品品質表示法施行令 (Enforcement Order, Cabinet Order No. 390 of 1962) Appended Table item 11 (かばん)"
+                       :evidence [:product-label :material-content-verified]}}}})
 
 ;; ----------------------------- coverage reporting (honest) -----------------------------
 
