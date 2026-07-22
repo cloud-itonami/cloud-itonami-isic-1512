@@ -107,11 +107,12 @@ approved past; a clean shipment proposal still always routes to a human
 ## Run
 
 ```bash
-clojure -M:dev:run     # walk six scenarios (clean batch/maintenance, always-escalating
-                        # concern, high-stakes clean shipment, unallowlisted-op block,
-                        # non-:propose-effect block) through the actor
-clojure -M:test         # governor contract · phase invariants · store parity · facts coverage
-clojure -M:lint          # clj-kondo (errors fail; CI mirrors this)
+clojure -M:run          # walk seven scenarios (phase-gated auto-commit/hold,
+                        # HARD-blocked safety concern, escalate-then-approve and
+                        # escalate-then-reject shipment, unverified-batch block)
+                        # through the REAL compiled langgraph-clj StateGraph
+clojure -M:test         # advisor · governor contract · phase rollout · store/ledger · facts · operation (real StateGraph, end-to-end)
+clojure -M:lint         # clj-kondo (errors fail; CI mirrors this)
 ```
 
 ## Jurisdiction coverage (honest)
@@ -143,14 +144,15 @@ requirements to make coverage look bigger.
 
 | File | Role |
 |---|---|
-| `src/luggage/store.cljc` | In-memory store: plants, production batches, shipments, maintenance log + verification guards + the shipment→batch indirection resolver |
+| `src/luggage/store.cljc` | In-memory store: plants, production batches, shipments, maintenance log + verification guards + the shipment→batch indirection resolver + the append-only audit ledger (`ledger`/`append-ledger!`) |
 | `src/luggage/facts.cljc` | Per-jurisdiction leather-labeling/exotic-skin-sourcing/labor-standards catalog with official spec-basis citations, honest coverage reporting |
-| `src/luggage/advisor.cljc` | Luggage-Goods Operations Advisor -- `mock-advisor`; batch-log/maintenance/safety-concern/shipment proposals |
+| `src/luggage/advisor.cljc` | Luggage-Goods Operations Advisor -- a real `Advisor` protocol + `MockAdvisor`/`mock-advisor`; batch-log/maintenance/safety-concern/shipment proposal builders |
 | `src/luggage/registry.cljc` | The closed `allowed-ops` allowlist + hard-invariant helpers + proposal draft constructors |
 | `src/luggage/governor.cljc` | **Luggage Governor** -- 6 HARD checks (spec-basis · effect-not-propose · op-not-allowlisted · plant-not-verified · batch-not-verified · process-control-forbidden) + 1 unconditional escalation (safety-concern) + 1 soft (confidence/actuation gate) |
-| `src/luggage/phase.cljc` | Phase table -- advisor → governor → hold/complete, built on the langgraph-clj StateGraph shape |
-| `src/luggage/sim.cljc` | demo driver |
-| `test/luggage/*_test.clj` | governor contract · phase invariants · store parity · facts coverage |
+| `src/luggage/phase.cljc` | The real 0->3 rollout gate (`may-auto-commit?`) genuinely consulted by `operation.cljc`'s `:decide` node |
+| `src/luggage/operation.cljc` | **The real compiled `langgraph-clj` StateGraph** (`operation/build`): `intake -> advise -> govern -> decide -+-> commit / request-approval -> commit / hold`, `interrupt-before #{:request-approval}` for genuine human-in-the-loop approval |
+| `src/luggage/sim.cljc` | demo driver -- drives the real compiled StateGraph end-to-end |
+| `test/luggage/*_test.clj` | advisor · governor contract · phase rollout · store/ledger · facts coverage · operation (real StateGraph, end-to-end) |
 
 ## Capability layer
 
@@ -185,9 +187,43 @@ business model:
 
 ## Maturity
 
-`:implemented` -- `Luggage-Goods Operations Advisor` + `Luggage Governor`
-run as real, tested code (see `Run` above), modeled closely on
-`cloud-itonami-isic-1420`'s verified module shape.
+`:implemented` -- and, as of this fix, genuinely so. Before this fix
+this repository had NO `operation.cljc`/StateGraph at all
+(`luggage.sim` hand-called `governor/evaluate` directly, bypassing any
+graph entirely), `luggage.phase` was a plain data map whose docstring
+FALSELY claimed to be "Built on langgraph-clj StateGraph shape",
+`luggage.advisor` had plain functions only (no `Advisor` protocol, no
+`MockAdvisor` -- this fleet's standard pattern), and NO
+`append-ledger!`/audit mechanism existed anywhere in `luggage.store` --
+not dead code, the concept was entirely absent from `src/` despite
+`blueprint.edn`'s `:required-technologies [... :audit-ledger]` and this
+README's own "immutable audit ledger" line implying one should exist.
+`blueprint.edn` nonetheless claimed `:itonami.blueprint/maturity
+:implemented`, which was false given all of the above.
+
+Now: `luggage.operation/build` is a genuinely compiled `langgraph.graph`
+StateGraph (`intake -> advise -> govern -> decide -+-> commit /
+request-approval -> commit / hold`) with `interrupt-before
+#{:request-approval}` + an in-memory checkpointer for real
+human-in-the-loop resume; `luggage.advisor/Advisor` is a real protocol
+with a `MockAdvisor` record; `luggage.phase/may-auto-commit?` is
+genuinely consulted by the `:decide` node; and
+`luggage.store/ledger`/`append-ledger!` is a real append-only audit
+ledger, genuinely wired into both the `:commit` and `:hold` graph nodes.
+`luggage.governor`'s hard/soft checks and `luggage.registry`'s
+allowlist/drafts are reused UNCHANGED -- this fix only wires the
+existing plant-operations compliance policy into a real compiled graph
+and a real ledger, it does not redesign it. Proven end-to-end by
+`test/luggage/operation_test.clj` (ledger stays empty until a real
+commit, phase-gated hold vs. auto-commit for the SAME proposal at
+different phases, HARD holds for unverified batch/safety-concern/
+unallowlisted-op that never reach human approval even at phase-3,
+escalate-then-approve and escalate-then-reject for high-stakes shipment
+coordination) through the REAL compiled graph, plus a `clojure -M:run`
+demo runner producing real ledger entries for every scenario. All
+pre-existing governor-contract/facts tests are unchanged and still
+passing. CI (`.github/workflows/ci.yml`) was missing entirely and is
+added in this fix.
 
 ## License
 

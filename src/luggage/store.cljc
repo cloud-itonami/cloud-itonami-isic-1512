@@ -5,7 +5,24 @@
   it into finished luggage, handbags, saddlery and harness on cutting/
   stitching/assembly lines. This is a reference implementation; production
   systems would use Datomic or a similar persistent event store for audit
-  and replay.")
+  and replay.
+
+  FIX (this commit): the append-only audit ledger (`ledger`/
+  `append-ledger!`) is this actor's core missing plumbing before this
+  fix -- no such function existed anywhere in `src/`, despite
+  `blueprint.edn`'s `:required-technologies [... :audit-ledger]` and the
+  README's 'immutable audit ledger' line implying one should exist.
+  `luggage.operation`'s `:commit`/`:hold` graph nodes now append every
+  committed/held/approval-rejected decision fact here, so a plant/batch's
+  operating history (every :proposal/log-production-batch /
+  :proposal/schedule-maintenance / :proposal/flag-safety-concern /
+  :actuation/coordinate-shipment decision) is always a query over an
+  immutable log. The ledger lives inside the SAME `:data` atom as every
+  other record here (a plain `:ledger` vector key) -- ALL pre-existing
+  accessors below (`plant`, `production-batch`, `shipment`, `equipment`,
+  the verification guards, `shipment-batch-id`) and `mem-store`'s shape
+  (a map with a `:data` atom, as depended on directly by
+  `store-contract-test`/`governor-contract-test`) are UNCHANGED.")
 
 ;; ----------------------------- store initialization -----------------------------
 
@@ -14,6 +31,7 @@
   saddlery-and-harness manufacturing."
   []
   {:data (atom {
+           :ledger []
            :plants {
              "plant-001" {:name "Community Leather Goods Workshop A"
                          :location "Italy"
@@ -100,3 +118,21 @@
   wrong keyspace."
   [st shipment-id]
   (:batch (shipment st shipment-id)))
+
+;; ----------------------------- append-only audit ledger -----------------------------
+
+(defn ledger
+  "The append-only audit ledger: every committed/held/approval-rejected
+  decision fact, in append order. Genuinely wired into
+  `luggage.operation`'s `:commit`/`:hold` nodes -- not test-only
+  plumbing."
+  [st]
+  (get @(:data st) :ledger []))
+
+(defn append-ledger!
+  "Append one immutable decision fact to the ledger. Returns the fact.
+  The ledger is append-only -- there is deliberately no update/remove
+  function."
+  [st fact]
+  (swap! (:data st) update :ledger (fnil conj []) fact)
+  fact)

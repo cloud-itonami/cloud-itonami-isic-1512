@@ -36,8 +36,15 @@ Publish: enable GitHub Pages on `main` `/docs`, or any static host.
 ## 4. Where the Governor sits
 
 - Blueprint governor key: `luggage-governor`
-- Likely source path: `luggage.governor.cljc`
-- Pattern: advise → govern → phase-gate → commit | escalate | hold (itonami actor / ADR-2607011000)
+- Source path: `src/luggage/governor.cljc`
+- The actor is a real compiled `langgraph-clj` StateGraph:
+  `src/luggage/operation.cljc`'s `operation/build`, pattern
+  `intake → advise → govern → decide -+-> commit / request-approval →
+  commit / hold` (itonami actor / ADR-2607011000), with a genuine
+  checkpointed `interrupt-before #{:request-approval}` for human-in-the-
+  loop approval, and every commit/hold decision landing in the
+  append-only ledger (`src/luggage/store.cljc`'s `ledger`/
+  `append-ledger!`).
 
 ## 5. Claim / go-live
 

@@ -1,0 +1,40 @@
+name: CI
+
+# Unlike some sibling cloud-itonami-isic-* actors, this project's deps.edn
+# already pins langgraph-clj via a real GIT COORDINATE in the top-level
+# :deps map (io.github.com-junkawasaki/langgraph-clj, resolved over the
+# network by tools.deps), not a monorepo-only :local/root path -- so a
+# single ordinary checkout resolves the classpath correctly with no
+# sibling-repo checkout dance needed. The :dev-local alias (unused here)
+# is only a convenience override for in-monorepo development.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: DeLaGuardo/setup-clojure@13.4
+        with: { cli: latest }
+      - name: clj-kondo (errors fail the build)
+        run: clojure -M:lint
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: DeLaGuardo/setup-clojure@13.4
+        with: { cli: latest }
+      - name: test (advisor · governor · phase · facts · registry · store · operation, real compiled StateGraph end-to-end)
+        run: clojure -M:test
+      - name: demo runner (compiled StateGraph, end-to-end)
+        run: clojure -M:run
