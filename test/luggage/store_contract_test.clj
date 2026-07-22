@@ -77,3 +77,41 @@
     (is (nil? (store/production-batch st "nonexistent")))
     (is (nil? (store/shipment st "nonexistent")))
     (is (nil? (store/equipment st "nonexistent")))))
+
+;; ----------------------------- append-only audit ledger (FIX: this commit) -----------------------------
+;; Previously NO `ledger`/`append-ledger!` function existed anywhere in
+;; `src/` -- not dead code, the concept was entirely absent.
+
+(deftest ledger-starts-empty
+  "A freshly created store's audit ledger is empty until a real commit
+  or hold lands -- no proposal, no evaluation, no graph run has happened
+  yet."
+  (let [st (store/mem-store)]
+    (is (empty? (store/ledger st)))))
+
+(deftest append-ledger-is-append-only
+  "append-ledger! appends facts in order and never mutates/removes prior
+  entries."
+  (let [st (store/mem-store)]
+    (store/append-ledger! st {:t :committed :op :proposal/schedule-maintenance})
+    (store/append-ledger! st {:t :governor-hold :op :actuation/coordinate-shipment})
+    (let [l (store/ledger st)]
+      (is (= 2 (count l)))
+      (is (= :committed (:t (first l))))
+      (is (= :governor-hold (:t (second l)))))))
+
+(deftest append-ledger-returns-the-fact
+  "append-ledger! returns the fact it appended."
+  (let [st (store/mem-store)
+        fact {:t :committed :op :proposal/log-production-batch}
+        returned (store/append-ledger! st fact)]
+    (is (= fact returned))))
+
+(deftest ledger-is-independent-per-store
+  "Two independently created stores have independent ledgers -- no shared
+  mutable state leaks between them."
+  (let [s1 (store/mem-store)
+        s2 (store/mem-store)]
+    (store/append-ledger! s1 {:t :committed :op :proposal/schedule-maintenance})
+    (is (= 1 (count (store/ledger s1))))
+    (is (empty? (store/ledger s2)))))
