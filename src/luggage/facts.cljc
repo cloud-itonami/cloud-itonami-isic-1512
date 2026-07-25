@@ -126,12 +126,21 @@
   (get-in catalog [jurisdiction :requirements]))
 
 (defn required-evidence-satisfied?
-  "Check if a checklist satisfies this jurisdiction's evidence requirements."
+  "Check if a checklist satisfies this jurisdiction's evidence requirements.
+
+  Returns FALSE for a jurisdiction this catalog does not know. Before
+  2026-07-25 an unknown jurisdiction produced an empty requirement set, and
+  `(every? f nil)` is true, so the check passed VACUOUSLY -- no evidence at all
+  satisfied it. The same hole was a LIVE hard-gate bypass in
+  cloud-itonami-isic-3520/3530, where the Governor gates gas and steam supply
+  actuation on this predicate. This repo does not wire it to its Governor, so
+  the exposure here was latent, but failing closed is correct either way."
   [jurisdiction checklist]
-  (let [reqs (get-in catalog [jurisdiction :requirements])]
+  (if-let [reqs (get-in catalog [jurisdiction :requirements])]
     (every? (fn [[_req-key req-spec]]
               (if (:required req-spec)
                 (let [evidence-keys (set (:evidence req-spec))]
                   (every? #(contains? checklist %) evidence-keys))
                 true))
-            reqs)))
+            reqs)
+    false))
