@@ -5,8 +5,7 @@
             [luggage.governor :as governor]
             [luggage.registry :as registry]))
 
-(deftest spec-basis-hard-gate
-  "Spec-basis is a HARD gate: never allow proposals without official citations."
+(deftest ^{:doc "Spec-basis is a HARD gate: never allow proposals without official citations."} spec-basis-hard-gate
   (let [st (store/mem-store)
         proposal {:op :actuation/coordinate-shipment
                   :subject "ship-001"
@@ -19,10 +18,9 @@
       (is (seq (:hard-violations eval)) "Should have hard violations")
       (is (some #(= (:rule %) :no-spec-basis) (:hard-violations eval))))))
 
-(deftest process-control-block
-  "HARD BLOCK: Proposals mentioning cutting speed, stitching tension, or
+(deftest ^{:doc "HARD BLOCK: Proposals mentioning cutting speed, stitching tension, or
   other equipment-control terms are immediately rejected. Those remain
-  plant-engineer exclusive authority."
+  plant-engineer exclusive authority."} process-control-block
   (let [st (store/mem-store)
         proposal {:op :proposal/log-production-batch
                   :subject "batch-001"
@@ -36,10 +34,9 @@
       (is (some #(= (:rule %) :process-control-forbidden) (:hard-violations eval))
         "Should have process-control-forbidden violation"))))
 
-(deftest process-control-block-leather-specific-terms
-  "HARD BLOCK: leather-goods-specific process terms (skiving an edge,
+(deftest ^{:doc "HARD BLOCK: leather-goods-specific process terms (skiving an edge,
   positioning a piece on a clicking press) are also forbidden
-  equipment-control language, not just generic cutting/stitching terms."
+  equipment-control language, not just generic cutting/stitching terms."} process-control-block-leather-specific-terms
   (let [st (store/mem-store)
         proposal {:op :proposal/log-production-batch
                   :subject "batch-001"
@@ -53,8 +50,7 @@
       (is (some #(= (:rule %) :process-control-forbidden) (:hard-violations eval))
         "Should have process-control-forbidden violation"))))
 
-(deftest safety-concern-escalation
-  "Safety/quality concerns ALWAYS escalate to human. Never silently log a concern."
+(deftest ^{:doc "Safety/quality concerns ALWAYS escalate to human. Never silently log a concern."} safety-concern-escalation
   (let [st (store/mem-store)
         proposal {:op :proposal/flag-safety-concern
                   :subject "batch-002"
@@ -69,13 +65,12 @@
       (is (some #(= (:rule %) :safety-concern-escalates) (:hard-violations eval))
         "Should have safety-concern-escalates violation"))))
 
-(deftest shipment-requires-escalation
-  "Shipment coordination is high-stakes actuation and requires human
+(deftest ^{:doc "Shipment coordination is high-stakes actuation and requires human
   sign-off, even when all other checks are clean -- and, because ship-001
   points at a fully verified batch/plant, there should be NO hard
   violations at all (only the soft escalate), proving the shipment->batch
   indirection resolves correctly rather than false-triggering on every
-  shipment regardless of its underlying batch's real verification state."
+  shipment regardless of its underlying batch's real verification state."} shipment-requires-escalation
   (let [st (store/mem-store)
         adv (advisor/mock-advisor)
         shipment-proposal (advisor/shipment-proposal adv "ship-001")]
@@ -87,10 +82,9 @@
       (is (some #(= (:rule %) :escalate) (:soft-violations eval))
         "Should escalate high-stakes actuation"))))
 
-(deftest shipment-batch-indirection-blocks-unverified-batch
-  "A shipment whose underlying batch is NOT verified must be blocked on
+(deftest ^{:doc "A shipment whose underlying batch is NOT verified must be blocked on
   :batch-not-verified via the shipment->batch indirection (ship-002 ->
-  batch-002, which is seeded unverified)."
+  batch-002, which is seeded unverified)."} shipment-batch-indirection-blocks-unverified-batch
   (let [st (store/mem-store)
         proposal (registry/shipment-draft "ship-002"
                    ["CITES implementing regulations, 50 CFR Part 23"]
@@ -102,9 +96,8 @@
       (is (some #(= (:rule %) :batch-not-verified) (:hard-violations eval))
         "Should block shipment whose underlying batch is unverified"))))
 
-(deftest shipment-unknown-blocks
-  "A shipment coordination proposal for a nonexistent shipment ID cannot
-  resolve any underlying batch, so it must hold on :batch-not-verified."
+(deftest ^{:doc "A shipment coordination proposal for a nonexistent shipment ID cannot
+  resolve any underlying batch, so it must hold on :batch-not-verified."} shipment-unknown-blocks
   (let [st (store/mem-store)
         proposal (registry/shipment-draft "ship-unknown"
                    ["CITES implementing regulations, 50 CFR Part 23"]
@@ -116,8 +109,7 @@
       (is (some #(= (:rule %) :batch-not-verified) (:hard-violations eval))
         "Should block on an unresolvable batch"))))
 
-(deftest plant-not-verified-blocks
-  "Production batch from unverified plant is blocked."
+(deftest ^{:doc "Production batch from unverified plant is blocked."} plant-not-verified-blocks
   (let [st (store/mem-store)
         ;; Create a batch with unverified plant
         _ (swap! (-> st :data) assoc-in [:production-batches "batch-unverified" :plant] "plant-unknown")
@@ -131,8 +123,7 @@
       (is (some #(= (:rule %) :plant-not-verified) (:hard-violations eval))
         "Should block unverified plant"))))
 
-(deftest batch-not-verified-blocks
-  "Production batch logging with unverified batch is blocked."
+(deftest ^{:doc "Production batch logging with unverified batch is blocked."} batch-not-verified-blocks
   (let [st (store/mem-store)
         proposal (registry/batch-log-draft "batch-002"
                    ["FTC Guides for Select Leather and Imitation Leather Products, 16 CFR Part 24"]
@@ -144,8 +135,7 @@
       (is (some #(= (:rule %) :batch-not-verified) (:hard-violations eval))
         "Should block unverified batch"))))
 
-(deftest low-confidence-escalates
-  "Low confidence proposals escalate to human, even if otherwise clean."
+(deftest ^{:doc "Low confidence proposals escalate to human, even if otherwise clean."} low-confidence-escalates
   (let [st (store/mem-store)
         proposal {:op :proposal/log-production-batch
                   :subject "batch-001"
@@ -159,9 +149,8 @@
       (is (some #(= (:rule %) :escalate) (:soft-violations eval))
         "Should escalate low-confidence"))))
 
-(deftest clean-proposal
-  "A proposal with all evidence, valid spec-basis (where required), high
-  confidence, and no high-stakes actuation or process-control is clean."
+(deftest ^{:doc "A proposal with all evidence, valid spec-basis (where required), high
+  confidence, and no high-stakes actuation or process-control is clean."} clean-proposal
   (let [st (store/mem-store)
         proposal {:op :proposal/schedule-maintenance
                   :subject "maint-001"
@@ -175,11 +164,10 @@
       (is (empty? (:hard-violations eval)) "Should have no hard violations")
       (is (empty? (:soft-violations eval)) "Should have no soft violations"))))
 
-(deftest op-not-allowlisted-blocks
-  "HARD: An :op outside the closed `luggage.registry/allowed-ops` set is
+(deftest ^{:doc "HARD: An :op outside the closed `luggage.registry/allowed-ops` set is
   rejected outright, whatever it claims to be -- proving the actor cannot
   be induced to actuate outside its four allowed proposal kinds by simply
-  naming a new op."
+  naming a new op."} op-not-allowlisted-blocks
   (let [st (store/mem-store)
         proposal {:op :actuation/operate-cutting-line
                   :subject "plant-001"
@@ -191,10 +179,9 @@
       (is (some #(= (:rule %) :op-not-allowlisted) (:hard-violations eval))
         "Should block an op outside the closed allowlist"))))
 
-(deftest effect-not-propose-blocks
-  "HARD: :effect must always be :propose. Even a proposal on an otherwise
+(deftest ^{:doc "HARD: :effect must always be :propose. Even a proposal on an otherwise
   fully allowlisted, fully verified op is blocked if :effect claims a
-  direct actuation."
+  direct actuation."} effect-not-propose-blocks
   (let [st (store/mem-store)
         adv (advisor/mock-advisor)
         proposal (assoc (advisor/batch-log-proposal adv "batch-001") :effect :actuate)]
@@ -203,9 +190,8 @@
       (is (some #(= (:rule %) :effect-not-propose) (:hard-violations eval))
         "Should block any :effect other than :propose"))))
 
-(deftest allowed-ops-is-closed-four-op-set
-  "The allowlist itself must be exactly the four documented ops -- no more,
-  no less -- so a future edit that silently widens it fails this test."
+(deftest ^{:doc "The allowlist itself must be exactly the four documented ops -- no more,
+  no less -- so a future edit that silently widens it fails this test."} allowed-ops-is-closed-four-op-set
   (is (= #{:proposal/log-production-batch
            :proposal/schedule-maintenance
            :proposal/flag-safety-concern
