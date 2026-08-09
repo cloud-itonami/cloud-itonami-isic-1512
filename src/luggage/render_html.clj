@@ -1,0 +1,313 @@
+(ns luggage.render-html
+  "Build-time HTML renderer for `docs/samples/operator-console.html`.
+
+  Closes flagship checklist item 2 (com-junkawasaki/root ADR-2607189300,
+  Wave2 flagship-item2): this repo previously had no generator and no
+  `docs/samples/operator-console.html`. This namespace drives the REAL
+  actor stack (`luggage.operation` -> `luggage.governor` ->
+  `luggage.store`) through a scenario adapted from this repo's own
+  `luggage.sim` demo driver (`clojure -M:dev:run`, confirmed BEFORE
+  writing this file to produce a sensible ledger against the real seeded
+  ids `plant-001` / `batch-001` / `batch-002` / `ship-001` / `ship-002` /
+  `maint-001` -- those ids match `luggage.store/mem-store`, so it was
+  safe to reuse rather than invent), covering phase-1 auto-commit of
+  maintenance scheduling, phase-1 phase-hold of batch logging, phase-2
+  auto-commit of the same batch-logging op once it joins the auto set, a
+  HARD safety-concern hold that never reaches a human, a high-stakes
+  shipment escalate-then-approve, a high-stakes escalate-then-reject, a
+  HARD batch-not-verified hold on the unverified python-clutch batch's
+  shipment, and a HARD op-not-allowlisted hold -- rendered
+  deterministically -- no invented numbers, no timestamps in the page
+  content, byte-identical across reruns against the same seed (verify
+  by diffing two consecutive runs).
+
+  Usage: `clojure -M:dev:render-html [out-file]`
+  (default `docs/samples/operator-console.html`)."
+  (:require [jp-go-dds.skin]
+            [clojure.string :as str]
+            [luggage.store :as store]
+            [luggage.operation :as op]
+            [langgraph.graph :as g]))
+
+;; ----------------------------- harness -----------------------------
+;; luggage.operation takes {:request .. :phase-num ..} (per-request
+;; rollout phase), NOT a fixed :context map -- mirror luggage.sim.
+
+(defn- exec! [actor tid request phase-num]
+  (g/run* actor {:request request :phase-num phase-num} {:thread-id tid}))
+
+(defn- approve! [actor tid by]
+  (g/run* actor {:approval {:status :approved :by by}}
+          {:thread-id tid :resume? true}))
+
+(defn- reject! [actor tid by]
+  (g/run* actor {:approval {:status :rejected :by by}}
+          {:thread-id tid :resume? true}))
+
+(defn run-demo!
+  "Runs a freshly seeded store through a scenario mixing every
+  disposition this actor can reach (adapted from `luggage.sim`, but
+  collapsed onto ONE store so the rendered console shows a single
+  coherent plant history): phase-1 auto-commits
+  `:proposal/schedule-maintenance` on `maint-001`; phase-1 HOLDS a clean
+  `:proposal/log-production-batch` on `batch-001` (not yet in the
+  phase-1 auto set -- reason `:not-in-phase-auto-set`); phase-2
+  auto-commits that SAME op once batch logging joins the auto set;
+  `:proposal/flag-safety-concern` on `batch-002` HARD-holds permanently
+  (`:safety-concern-escalates` -- never interactive); a clean
+  `:actuation/coordinate-shipment` on `ship-001` escalates (high-stakes)
+  and is human-approved; the same op on a second thread is
+  human-rejected; `ship-002` (points at unverified `batch-002`)
+  HARD-holds on `:batch-not-verified`; an unrecognized op HARD-holds on
+  `:op-not-allowlisted`. Every HARD hold never reaches a human. Returns
+  the resulting store -- every field read by `render` below is real
+  governor/store output, not a hand-typed copy."
+  []
+  (let [db (store/mem-store)
+        actor (op/build db)]
+    ;; phase-1 auto-commit (maintenance only)
+    (exec! actor "t1-maint" {:op :proposal/schedule-maintenance :subject "maint-001"} 1)
+
+    ;; phase-1 hold -- batch logging not yet in auto set
+    (exec! actor "t2-batch-p1" {:op :proposal/log-production-batch :subject "batch-001"} 1)
+
+    ;; phase-2 auto-commit of the same batch-logging op
+    (exec! actor "t3-batch-p2" {:op :proposal/log-production-batch :subject "batch-001"} 2)
+
+    ;; HARD: safety/quality concern always holds
+    (exec! actor "t4-safety" {:op :proposal/flag-safety-concern :subject "batch-002"
+                              :concern-type "labeling-error"} 3)
+
+    ;; high-stakes shipment: escalate then approve
+    (exec! actor "t5-ship-ok" {:op :actuation/coordinate-shipment :subject "ship-001"} 3)
+    (approve! actor "t5-ship-ok" "compliance-officer-01")
+
+    ;; high-stakes shipment: escalate then reject (separate thread)
+    (exec! actor "t6-ship-rej" {:op :actuation/coordinate-shipment :subject "ship-001"} 3)
+    (reject! actor "t6-ship-rej" "compliance-officer-01")
+
+    ;; HARD: shipment of unverified batch (ship-002 -> batch-002)
+    (exec! actor "t7-ship-bad" {:op :actuation/coordinate-shipment :subject "ship-002"} 3)
+
+    ;; HARD: op outside closed allowlist
+    (exec! actor "t8-unknown" {:op :proposal/operate-clicking-press :subject "plant-001"} 3)
+
+    db))
+
+;; ----------------------------- rendering -----------------------------
+
+(defn- esc [v]
+  (-> (str v)
+      (str/replace "&" "&amp;")
+      (str/replace "<" "&lt;")
+      (str/replace ">" "&gt;")))
+
+(defn- hold-rule [f]
+  (or (some-> f :hard-violations first :rule)
+      (some-> f :violations first :rule)
+      (some-> f :basis first)
+      (:reason f)))
+
+(defn- last-fact-for [ledger subject-id]
+  (last (filter #(= (:subject %) subject-id) ledger)))
+
+(defn- status-cell [ledger subject-id]
+  (let [f (last-fact-for ledger subject-id)]
+    (cond
+      (nil? f) "<span class=\"muted\">no activity</span>"
+      (= :committed (:t f))
+      (if (:approved-by f)
+        "<span class=\"ok\">approved &amp; committed</span>"
+        "<span class=\"ok\">committed</span>")
+      (= :approval-granted (:t f)) "<span class=\"ok\">approved &amp; committed</span>"
+      (= :governor-hold (:t f))
+      (let [rule (hold-rule f)]
+        (case rule
+          :safety-concern-escalates
+          "<span class=\"critical\">HARD hold &middot; safety-concern-escalates</span>"
+          :batch-not-verified
+          "<span class=\"critical\">HARD hold &middot; batch-not-verified</span>"
+          :plant-not-verified
+          "<span class=\"critical\">HARD hold &middot; plant-not-verified</span>"
+          :op-not-allowlisted
+          "<span class=\"critical\">HARD hold &middot; op-not-allowlisted</span>"
+          :process-control-forbidden
+          "<span class=\"critical\">HARD hold &middot; process-control-forbidden</span>"
+          :not-in-phase-auto-set
+          "<span class=\"warn\">held &middot; not-in-phase-auto-set</span>"
+          (str "<span class=\"critical\">HARD hold &middot; "
+               (esc (name (or rule :unknown))) "</span>")))
+      (= :approval-rejected (:t f))
+      "<span class=\"critical\">approval rejected</span>"
+      (= :approval-requested (:t f)) "<span class=\"warn\">awaiting approval</span>"
+      :else "<span class=\"muted\">in progress</span>")))
+
+(defn- verified-cell [ok?]
+  (if ok?
+    "<span class=\"ok\">verified</span>"
+    "<span class=\"warn\">unverified</span>"))
+
+(defn- plant-row [ledger db plant-id]
+  (let [p (store/plant db plant-id)]
+    (format "        <tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
+            (esc plant-id)
+            (esc (or (:name p) "(missing)"))
+            (esc (str (or (:jurisdiction p) :n-a)))
+            (verified-cell (boolean (:registered? p)))
+            (status-cell ledger plant-id))))
+
+(defn- batch-row [ledger db batch-id]
+  (let [b (store/production-batch db batch-id)]
+    (format "        <tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
+            (esc batch-id)
+            (esc (or (:style b) "(missing)"))
+            (esc (or (:quantity b) ""))
+            (esc (or (:material-source b) ""))
+            (verified-cell (boolean (:verified? b)))
+            (status-cell ledger batch-id))))
+
+(defn- shipment-row [ledger db ship-id]
+  (let [s (store/shipment db ship-id)
+        batch-id (:batch s)
+        b (when batch-id (store/production-batch db batch-id))]
+    (format "        <tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
+            (esc ship-id)
+            (esc (or batch-id "(missing)"))
+            (esc (or (:destination s) ""))
+            (esc (or (:qty s) ""))
+            (verified-cell (boolean (:verified? b)))
+            (status-cell ledger ship-id))))
+
+(defn- equipment-row [ledger db equip-id]
+  (let [e (store/equipment db equip-id)]
+    (format "        <tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
+            (esc equip-id)
+            (esc (or (:equipment e) "(missing)"))
+            (esc (str (or (:status e) :n-a)))
+            (status-cell ledger equip-id))))
+
+(defn- nonblank [s]
+  (when (and (string? s) (not (str/blank? s))) s))
+
+(defn- ledger-basis [f]
+  (or (nonblank (some->> (:basis f) seq (map #(if (keyword? %) (name %) %)) (str/join ", ")))
+      (nonblank (some->> (:hard-violations f) seq (map #(if (keyword? (:rule %)) (name (:rule %)) (str (:rule %)))) (str/join ", ")))
+      (some-> (:reason f) name)
+      (when-let [by (:approved-by f)] (str "approved-by " by))
+      (some-> (:disposition f) name)
+      ""))
+
+(defn- ledger-row [f]
+  (format "        <tr><td>%s</td><td><code>%s</code></td><td>%s</td><td>%s</td></tr>"
+          (esc (name (:t f)))
+          (esc (name (or (:op f) :n-a)))
+          (esc (:subject f))
+          (esc (ledger-basis f))))
+
+(def ^:private action-gate-rows
+  ;; Static description of this actor's own closed op contract
+  ;; (README / luggage.governor / luggage.phase) -- documentation of
+  ;; fixed behavior, not runtime telemetry, so it is legitimately
+  ;; hand-described rather than derived from a live run.
+  ["        <tr><td><code>:proposal/schedule-maintenance</code></td><td><span class=\"ok\">phase-1+ auto-commit when clean</span></td></tr>"
+   "        <tr><td><code>:proposal/log-production-batch</code></td><td><span class=\"ok\">phase-2+ auto-commit when clean + verified batch/plant</span> &middot; phase-1 holds as <code>not-in-phase-auto-set</code></td></tr>"
+   "        <tr><td><code>:actuation/coordinate-shipment</code></td><td><span class=\"warn\">ALWAYS human approval (high-stakes) &middot; never auto at any phase</span> &middot; HARD hold on unverified batch/plant</td></tr>"
+   "        <tr><td><code>:proposal/flag-safety-concern</code></td><td><span class=\"critical\">HARD always-hold (permanent; never interactive on this actor)</span></td></tr>"
+   "        <tr><td>op outside closed allowlist / process-control keywords</td><td><span class=\"critical\">HARD hold &middot; op-not-allowlisted / process-control-forbidden</span></td></tr>"
+   "        <tr><td>cutting/stitching/assembly-line control</td><td><span class=\"critical\">HARD forbidden (plant-engineer exclusive; never overridable)</span></td></tr>"])
+
+(defn render
+  "Renders the full operator-console.html document from a store `db`
+  that has already run `run-demo!` (or any other real scenario)."
+  [db]
+  (let [ledger (vec (store/ledger db))
+        plant-ids ["plant-001"]
+        batch-ids ["batch-001" "batch-002"]
+        ship-ids ["ship-001" "ship-002"]
+        equip-ids ["maint-001"]
+        plant-rows (str/join "\n" (map (partial plant-row ledger db) plant-ids))
+        batch-rows (str/join "\n" (map (partial batch-row ledger db) batch-ids))
+        ship-rows (str/join "\n" (map (partial shipment-row ledger db) ship-ids))
+        equip-rows (str/join "\n" (map (partial equipment-row ledger db) equip-ids))
+        ledger-rows (str/join "\n" (map ledger-row ledger))]
+    (str
+     "<html><head><meta charset=\"utf-8\"><title>cloud-itonami-isic-1512 &middot; luggage/handbag/saddlery manufacturing</title><style>"
+     (jp-go-dds.skin/dds+skin)
+     "</style></head><body>\n"
+     "<header class=\"bar\">\n"
+     "  <h1>Luggage, handbags, saddlery and harness manufacturing (ISIC 1512) — Operator Console</h1>\n"
+     "  <span class=\"badge\">read-only sample · governor-gated · shipment always human-approved · safety-concern permanent HARD hold</span>\n"
+     "</header>\n"
+     "<main>\n"
+     "  <section class=\"card\">\n"
+     "    <h2>Plants</h2>\n"
+     "    <p class=\"muted\">Demo snapshot — build-time-generated from <code>luggage.store</code> via <code>luggage.render-html</code> (<code>clojure -M:dev:render-html</code>), regenerated nightly.</p>\n"
+     "    <table>\n"
+     "      <thead><tr><th>Plant</th><th>Name</th><th>Jurisdiction</th><th>Registration</th><th>Last op status</th></tr></thead>\n"
+     "      <tbody>\n"
+     plant-rows "\n"
+     "      </tbody>\n"
+     "    </table>\n"
+     "  </section>\n"
+     "  <section class=\"card\">\n"
+     "    <h2>Production batches</h2>\n"
+     "    <p class=\"muted\">Cutting/stitching/assembly lots. Unverified batches cannot be logged or shipped.</p>\n"
+     "    <table>\n"
+     "      <thead><tr><th>Batch</th><th>Style</th><th>Qty</th><th>Material</th><th>Verification</th><th>Last op status</th></tr></thead>\n"
+     "      <tbody>\n"
+     batch-rows "\n"
+     "      </tbody>\n"
+     "    </table>\n"
+     "  </section>\n"
+     "  <section class=\"card\">\n"
+     "    <h2>Outbound shipments</h2>\n"
+     "    <p class=\"muted\">High-stakes actuation — always escalates; batch verification is independently recomputed via the shipment→batch indirection.</p>\n"
+     "    <table>\n"
+     "      <thead><tr><th>Shipment</th><th>Batch</th><th>Destination</th><th>Qty</th><th>Batch verified</th><th>Last op status</th></tr></thead>\n"
+     "      <tbody>\n"
+     ship-rows "\n"
+     "      </tbody>\n"
+     "    </table>\n"
+     "  </section>\n"
+     "  <section class=\"card\">\n"
+     "    <h2>Line equipment (maintenance schedule)</h2>\n"
+     "    <p class=\"muted\">Maintenance scheduling only — this actor never operates cutting/stitching equipment.</p>\n"
+     "    <table>\n"
+     "      <thead><tr><th>Record</th><th>Equipment</th><th>Status</th><th>Last op status</th></tr></thead>\n"
+     "      <tbody>\n"
+     equip-rows "\n"
+     "      </tbody>\n"
+     "    </table>\n"
+     "  </section>\n"
+     "  <section class=\"card\">\n"
+     "    <h2>Action gate (Luggage Governor)</h2>\n"
+     "    <p class=\"muted\">HARD holds cannot be overridden. This actor coordinates plant operations around luggage/handbag/saddlery manufacturing only — cutting, skiving, stitching and assembly-line control remain plant-engineer exclusive. A safety-concern flag is a durable hold (reviewable via the ledger), not an interactive approve/reject button.</p>\n"
+     "    <table>\n"
+     "      <thead><tr><th>Op / condition</th><th>Gate</th></tr></thead>\n"
+     "      <tbody>\n"
+     (str/join "\n" action-gate-rows) "\n"
+     "      </tbody>\n"
+     "    </table>\n"
+     "  </section>\n"
+     "  <section class=\"card\">\n"
+     "    <h2>Audit ledger (this run)</h2>\n"
+     "    <p class=\"muted\">Append-only decision-fact log — every proposal, hold and commit this scenario produced.</p>\n"
+     "    <table>\n"
+     "      <thead><tr><th>Fact</th><th>Op</th><th>Subject</th><th>Basis</th></tr></thead>\n"
+     "      <tbody>\n"
+     ledger-rows "\n"
+     "      </tbody>\n"
+     "    </table>\n"
+     "  </section>\n"
+     "</main>\n"
+     "</body></html>\n")))
+
+(defn -main [& args]
+  (let [out (or (first args) "docs/samples/operator-console.html")
+        db (run-demo!)
+        html (render db)
+        out-file (java.io.File. out)]
+    (when-let [parent (.getParentFile out-file)]
+      (.mkdirs parent))
+    (spit out-file html)
+    (println "wrote" out "(" (count (store/ledger db)) "ledger facts )")))
