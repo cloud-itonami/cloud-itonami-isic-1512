@@ -38,7 +38,7 @@
       tannery's/material supplier's responsibility, not this plant's)
 
   Those remain the exclusive authority of plant production engineers."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [luggage.registry :as registry]
             [luggage.store :as store]))
 
@@ -136,7 +136,7 @@
   authority of licensed plant production engineers."
   [proposal _st]
   (let [detail (str (:detail (:value proposal) "") " " (:op proposal))
-        words (re-seq #"\w+" (str/lower-case detail))
+        words (re-seq #"\w+" (str/lower detail))
         ;; `some` over a set-as-predicate returns the actual matched word
         ;; (truthy) rather than a bare `true`/`nil`, so the violation detail
         ;; below can name the specific forbidden keyword found.
