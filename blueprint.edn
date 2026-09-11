@@ -49,7 +49,7 @@
  closed allowlist/draft constructors are reused UNCHANGED -- this fix
  only wires the existing plant-operations compliance policy into a real
  compiled graph and a real ledger, it does not redesign it.
- Proven end-to-end by test/luggage/operation_test.clj (ledger stays
+ Proven end-to-end by test/luggage/operation_test.cljk (ledger stays
  empty until a real commit, phase-gated hold vs. auto-commit for the
  SAME proposal at different phases, HARD holds for unverified-batch/
  safety-concern/unallowlisted-op that never reach human approval even

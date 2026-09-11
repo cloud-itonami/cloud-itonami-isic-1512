@@ -144,14 +144,14 @@ requirements to make coverage look bigger.
 
 | File | Role |
 |---|---|
-| `src/luggage/store.cljc` | In-memory store: plants, production batches, shipments, maintenance log + verification guards + the shipment→batch indirection resolver + the append-only audit ledger (`ledger`/`append-ledger!`) |
-| `src/luggage/facts.cljc` | Per-jurisdiction leather-labeling/exotic-skin-sourcing/labor-standards catalog with official spec-basis citations, honest coverage reporting |
-| `src/luggage/advisor.cljc` | Luggage-Goods Operations Advisor -- a real `Advisor` protocol + `MockAdvisor`/`mock-advisor`; batch-log/maintenance/safety-concern/shipment proposal builders |
-| `src/luggage/registry.cljc` | The closed `allowed-ops` allowlist + hard-invariant helpers + proposal draft constructors |
-| `src/luggage/governor.cljc` | **Luggage Governor** -- 6 HARD checks (spec-basis · effect-not-propose · op-not-allowlisted · plant-not-verified · batch-not-verified · process-control-forbidden) + 1 unconditional escalation (safety-concern) + 1 soft (confidence/actuation gate) |
-| `src/luggage/phase.cljc` | The real 0->3 rollout gate (`may-auto-commit?`) genuinely consulted by `operation.cljc`'s `:decide` node |
-| `src/luggage/operation.cljc` | **The real compiled `langgraph-clj` StateGraph** (`operation/build`): `intake -> advise -> govern -> decide -+-> commit / request-approval -> commit / hold`, `interrupt-before #{:request-approval}` for genuine human-in-the-loop approval |
-| `src/luggage/sim.cljc` | demo driver -- drives the real compiled StateGraph end-to-end |
+| `src/luggage/store.cljk` | In-memory store: plants, production batches, shipments, maintenance log + verification guards + the shipment→batch indirection resolver + the append-only audit ledger (`ledger`/`append-ledger!`) |
+| `src/luggage/facts.cljk` | Per-jurisdiction leather-labeling/exotic-skin-sourcing/labor-standards catalog with official spec-basis citations, honest coverage reporting |
+| `src/luggage/advisor.cljk` | Luggage-Goods Operations Advisor -- a real `Advisor` protocol + `MockAdvisor`/`mock-advisor`; batch-log/maintenance/safety-concern/shipment proposal builders |
+| `src/luggage/registry.cljk` | The closed `allowed-ops` allowlist + hard-invariant helpers + proposal draft constructors |
+| `src/luggage/governor.cljk` | **Luggage Governor** -- 6 HARD checks (spec-basis · effect-not-propose · op-not-allowlisted · plant-not-verified · batch-not-verified · process-control-forbidden) + 1 unconditional escalation (safety-concern) + 1 soft (confidence/actuation gate) |
+| `src/luggage/phase.cljk` | The real 0->3 rollout gate (`may-auto-commit?`) genuinely consulted by `operation.cljc`'s `:decide` node |
+| `src/luggage/operation.cljk` | **The real compiled `langgraph-clj` StateGraph** (`operation/build`): `intake -> advise -> govern -> decide -+-> commit / request-approval -> commit / hold`, `interrupt-before #{:request-approval}` for genuine human-in-the-loop approval |
+| `src/luggage/sim.cljk` | demo driver -- drives the real compiled StateGraph end-to-end |
 | `test/luggage/*_test.clj` | advisor · governor contract · phase rollout · store/ledger · facts coverage · operation (real StateGraph, end-to-end) |
 
 ## Capability layer
@@ -214,7 +214,7 @@ ledger, genuinely wired into both the `:commit` and `:hold` graph nodes.
 allowlist/drafts are reused UNCHANGED -- this fix only wires the
 existing plant-operations compliance policy into a real compiled graph
 and a real ledger, it does not redesign it. Proven end-to-end by
-`test/luggage/operation_test.clj` (ledger stays empty until a real
+`test/luggage/operation_test.cljk` (ledger stays empty until a real
 commit, phase-gated hold vs. auto-commit for the SAME proposal at
 different phases, HARD holds for unverified batch/safety-concern/
 unallowlisted-op that never reach human approval even at phase-3,
