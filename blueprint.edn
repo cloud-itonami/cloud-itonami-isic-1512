@@ -56,7 +56,7 @@
  at phase-3, escalate-then-approve and escalate-then-reject for
  high-stakes shipment coordination, never-auto-commit for
  safety-concern/shipment at every phase) through the REAL compiled
- graph, plus a clojure -M:run demo runner producing real ledger entries
+ graph, plus a kbb -M:run demo runner producing real ledger entries
  for every scenario. All pre-existing governor-contract/facts/registry
  tests are unchanged and still passing. CI
  (.github/workflows/ci.yml) was missing entirely and is added in this

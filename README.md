@@ -107,12 +107,12 @@ approved past; a clean shipment proposal still always routes to a human
 ## Run
 
 ```bash
-clojure -M:run          # walk seven scenarios (phase-gated auto-commit/hold,
+kbb -M:run          # walk seven scenarios (phase-gated auto-commit/hold,
                         # HARD-blocked safety concern, escalate-then-approve and
                         # escalate-then-reject shipment, unverified-batch block)
                         # through the REAL compiled langgraph-clj StateGraph
-clojure -M:test         # advisor · governor contract · phase rollout · store/ledger · facts · operation (real StateGraph, end-to-end)
-clojure -M:lint         # clj-kondo (errors fail; CI mirrors this)
+kbb -M:test         # advisor · governor contract · phase rollout · store/ledger · facts · operation (real StateGraph, end-to-end)
+kbb -M:lint         # clj-kondo (errors fail; CI mirrors this)
 ```
 
 ## Jurisdiction coverage (honest)
@@ -219,7 +219,7 @@ commit, phase-gated hold vs. auto-commit for the SAME proposal at
 different phases, HARD holds for unverified batch/safety-concern/
 unallowlisted-op that never reach human approval even at phase-3,
 escalate-then-approve and escalate-then-reject for high-stakes shipment
-coordination) through the REAL compiled graph, plus a `clojure -M:run`
+coordination) through the REAL compiled graph, plus a `kbb -M:run`
 demo runner producing real ledger entries for every scenario. All
 pre-existing governor-contract/facts tests are unchanged and still
 passing. CI (`.github/workflows/ci.yml`) was missing entirely and is
