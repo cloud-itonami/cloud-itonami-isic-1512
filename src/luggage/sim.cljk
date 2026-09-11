@@ -1,5 +1,5 @@
 (ns luggage.sim
-  "Demo driver -- `clojure -M:dev:run`. Drives the REAL compiled
+  "Demo driver -- `kbb -M:dev:run`. Drives the REAL compiled
   `langgraph-clj` `StateGraph` (`luggage.operation/build`) end-to-end
   through a phase-1 auto-commit (maintenance scheduling), a phase-1 hold
   gated by the rollout table (batch logging not yet in the phase-1 auto
