@@ -16,7 +16,7 @@
   real commit, escalated proposals hold-until-approved via a genuine
   checkpointed `interrupt-before`, and a governor rejection (HARD
   violation or a human's :rejected decision) blocks commit entirely."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [langgraph.graph :as g]
             [luggage.operation :as op]
             [luggage.store :as store]))

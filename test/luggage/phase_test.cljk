@@ -7,7 +7,7 @@
   not behavior. `luggage.phase` no longer has that shape at all; these
   tests exercise the REAL `may-auto-commit?` rollout gate that
   `luggage.operation`'s `:decide` node genuinely calls."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [luggage.phase :as phase]))
 
 (deftest phase-0-all-held

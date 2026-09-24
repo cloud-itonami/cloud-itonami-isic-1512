@@ -1,5 +1,5 @@
 (ns luggage.facts-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [luggage.facts :as facts]))
 
 (deftest ^{:doc "Catalog should define at least 5 jurisdictions with official spec-basis."} catalog-has-jurisdictions
