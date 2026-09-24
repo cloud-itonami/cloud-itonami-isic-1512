@@ -4,3 +4,4 @@
 *.jar
 .DS_Store
 target/
+.nbb/
