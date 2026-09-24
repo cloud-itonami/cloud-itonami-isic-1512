@@ -1,0 +1,31 @@
+;; What this vertical's robot physically does, declared for
+;; kotoba.robotics.process (kotoba-lang/robotics). `kbb -M:dev:physics` runs it.
+;;
+;; README "Robotics premise": a plant-floor operator or a robotics-assisted
+;; cutting/stitching station performs the cutting, skiving and stitching of
+;; luggage and handbags. Its physical work here: pull-testing a handle strap
+;; sample, and packing finished suitcases into shipping cartons.
+;;
+;; Every number without a cited source is marked `estimate` in its :basis.
+;; Replacing an estimate with a sourced value is this bot's growth work.
+{:physics/schema "itonami.physical-ai.spec.v1"
+ :repo "cloud-itonami/cloud-itonami-isic-1512"
+ :cases
+ [{:id :handle-strap-pull
+   :kind :material
+   :procedure "tensile tester pulls a 25 mm x 1.5 mm nylon handle-strap sample to the handle proof load and records the elongation"
+   :params {:length-m 0.2 :area-m2 3.75e-5 :youngs-modulus-pa 2.0e9 :yield-stress-pa 60.0e6
+            :hardening-pa 3.0e8 :density-kg-m3 1140.0}
+   :sweep {:param :max-force-n :values [500.0 1000.0 1500.0 2000.0 2500.0 3000.0]}
+   :quantity :final-strain
+   :limit {:max 0.04 :basis "estimate: a strap that stretches more than 4 % at the proof load has left its elastic range and fails the handle test"}
+   :boundary {:lo 200.0 :hi 6000.0}}
+  {:id :suitcase-to-carton
+   :kind :manipulator
+   :procedure "arm lifts a finished suitcase from the inspection table into its shipping carton"
+   :params {:l1-m 0.55 :l2-m 0.50 :m1-kg 7.0 :m2-kg 5.0
+            :from [0.35 0.50] :to [0.70 -0.10] :duration-s 2.0 :steps 400}
+   :sweep {:param :payload-kg :values [2.0 3.0 4.0 5.0 6.0]}
+   :quantity :peak-tau1-nm
+   :limit {:max 90.0 :basis "estimate: continuous shoulder torque of a ~10 kg class collaborative arm"}
+   :boundary {:lo 0.5 :hi 30.0}}]}
