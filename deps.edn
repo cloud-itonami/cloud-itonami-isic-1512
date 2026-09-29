@@ -4,7 +4,7 @@
  ;; For monorepo workspace dev, use :dev alias (local/root overrides).
  ;; For standalone forks, git coordinates resolve on their own.
  ;; (renamed from com-junkawasaki/langgraph-clj + com-junkawasaki/langchain-clj;
- ;; no -clj suffix per CLAUDE.md naming policy -- old names 301-redirect on GitHub.)
+ ;; no -clj suffix per AGENTS.md naming policy -- old names 301-redirect on GitHub.)
  :deps {
         ;; kotoba.robotics.process: the process-physics solvers and probe this
         ;; repo's physics.edn runs on (physical-AI bot, scripts/physical-ai-bots).
